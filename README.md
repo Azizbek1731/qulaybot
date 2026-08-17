@@ -78,29 +78,38 @@ Ma'lumotlar bazasi `./data/bot.db` faylida saqlanadi (konteyner o'chsa ham yo'qo
 
 ## 🖥 Serverga o'rnatish (systemd)
 
-`/etc/systemd/system/qulaybot.service`:
-
-```ini
-[Unit]
-Description=Qulay Bot - AI eslatma yordamchisi
-After=network-online.target
-
-[Service]
-Type=simple
-User=botuser
-WorkingDirectory=/opt/qulaybot
-ExecStart=/opt/qulaybot/.venv/bin/python -m app.main
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+Loyiha AWS serverida (`16.16.120.67`) shu tarzda ishlab turibdi:
 
 ```bash
+# 1. Kodni yuklash
+rsync -az --exclude '.venv' --exclude 'data' --exclude '__pycache__' \
+  -e "ssh -i ~/avishifo.pem" \
+  ./app ./requirements.txt ./.env ubuntu@16.16.120.67:~/qulaybot/
+
+# 2. Muhitni tayyorlash
+ssh -i ~/avishifo.pem ubuntu@16.16.120.67 \
+  "cd ~/qulaybot && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+
+# 3. Xizmatni o'rnatish (deploy/qulaybot.service faylidan)
+sudo cp deploy/qulaybot.service /etc/systemd/system/
+sudo systemctl daemon-reload
 sudo systemctl enable --now qulaybot
-sudo journalctl -u qulaybot -f
 ```
+
+Boshqarish:
+
+```bash
+sudo systemctl status qulaybot      # holati
+sudo systemctl restart qulaybot     # qayta ishga tushirish
+journalctl -u qulaybot -f           # jonli loglar
+```
+
+Xizmat fayli [deploy/qulaybot.service](deploy/qulaybot.service) da. U:
+- ishdan chiqsa 10 sekundda o'zi qayta ishga tushadi (`Restart=always`);
+- server o'chib yonsa avtomatik ko'tariladi (`enable`);
+- xotira (400 MB) va CPU (50%) cheklovi bilan ishlaydi — serverdagi boshqa
+  loyihalarga xalaqit bermaydi;
+- faqat `data/` papkasiga yoza oladi (`ProtectSystem=full`).
 
 ---
 
